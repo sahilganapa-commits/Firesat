@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Firebreak — wildfire egress planning</title>
+<style>
+  :root {
+    --bg: #0e1013;
+    --panel: #16191e;
+    --panel-2: #1c2027;
+    --line: #2a2f38;
+    --ink: #e9edf2;
+    --ink-dim: #98a2b3;
+    --open: #35c07a;
+    --unknown: #e0a53a;
+    --crossed: #e5484d;
+    --accent: #6ba8ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 22px; }
+  h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.02em; }
+  .tagline { color: var(--ink-dim); margin: 0; }
+
+  .planning-banner {
+    margin-top: 16px; padding: 12px 14px; border-radius: 8px;
+    background: rgba(224,165,58,0.10); border: 1px solid rgba(224,165,58,0.45);
+    color: #f3d9a4; font-weight: 600;
+  }
+  .planning-banner small { display: block; font-weight: 400; color: #d9c391; margin-top: 4px; }
+
+  .controls {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px; margin-bottom: 20px;
+  }
+  @media (max-width: 700px) { .controls { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 12px; text-transform: uppercase;
+          letter-spacing: 0.06em; color: var(--ink-dim); margin-bottom: 6px; }
+  select, input[type=text] {
+    width: 100%; padding: 10px 11px; border-radius: 7px;
+    background: var(--panel-2); color: var(--ink);
+    border: 1px solid var(--line); font-size: 15px;
+  }
+  input[type=range] { width: 100%; }
+  .time-readout { font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 650; }
+
+  .staleness {
+    margin-bottom: 18px; padding: 11px 14px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--line);
+    color: var(--ink-dim); font-size: 14px;
+  }
+  .staleness strong { color: var(--ink); }
+
+  .answer {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: 18px; margin-bottom: 22px;
+  }
+  .answer h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+               letter-spacing: 0.08em; color: var(--ink-dim); font-weight: 600; }
+  .answer .headline { font-size: 21px; font-weight: 650; line-height: 1.35; }
+  .answer .route { margin-top: 10px; color: var(--ink-dim); }
+  .answer.none { border-left-color: var(--crossed); }
+
+  .exits { display: grid; gap: 10px; }
+  .exit {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 4px solid var(--line); border-radius: 9px; padding: 14px 16px;
+  }
+  .exit.open { border-left-color: var(--open); }
+  .exit.unknown { border-left-color: var(--unknown); }
+  .exit.crossed { border-left-color: var(--crossed); opacity: 0.75; }
+  .exit-top { display: flex; justify-content: space-between; gap: 12px;
+              align-items: baseline; flex-wrap: wrap; }
+  .exit-name { font-weight: 650; font-size: 16px; }
+  .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    padding: 3px 8px; border-radius: 999px; text-transform: uppercase;
+  }
+  .badge.open { background: rgba(53,192,122,0.15); color: var(--open); }
+  .badge.unknown { background: rgba(224,165,58,0.15); color: var(--unknown); }
+  .badge.crossed { background: rgba(229,72,77,0.15); color: var(--crossed); }
+  .exit-headline { margin-top: 5px; font-size: 15px; }
+  .exit-detail { margin-top: 7px; color: var(--ink-dim); font-size: 13.5px; }
+  .exit-meta { margin-top: 8px; color: var(--ink-dim); font-size: 12.5px;
+               font-variant-numeric: tabular-nums; }
+
+  h3.section { margin: 34px 0 12px; font-size: 13px; text-transform: uppercase;
+               letter-spacing: 0.08em; color: var(--ink-dim); }
+
+  .worksheet { background: var(--panel); border: 1px solid var(--line);
+               border-radius: 10px; padding: 16px; }
+  .worksheet p.intro { margin-top: 0; color: var(--ink-dim); font-size: 14px; }
+  .ws-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px;
+            align-items: center; margin-bottom: 10px; }
+  @media (max-width: 700px) { .ws-row { grid-template-columns: 1fr; } }
+  .ws-row label { margin: 0; }
+  .ws-actions { margin-top: 12px; display: flex; gap: 10px; align-items: center; }
+  button {
+    background: var(--accent); color: #08101f; border: 0; font-weight: 650;
+    padding: 9px 16px; border-radius: 7px; cursor: pointer; font-size: 14px;
+  }
+  button.secondary { background: var(--panel-2); color: var(--ink);
+                     border: 1px solid var(--line); }
+  .ws-saved { color: var(--open); font-size: 13px; }
+
+  .limitations {
+    margin-top: 34px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px;
+  }
+  .limitations h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
+                    letter-spacing: 0.08em; color: var(--ink-dim); }
+  .limitations p { margin: 0 0 12px; color: #c6cfda; font-size: 14px; }
+  .limitations p:last-child { margin-bottom: 0; }
+
+  footer { margin-top: 30px; color: var(--ink-dim); font-size: 12.5px;
+           border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Firebreak</h1>
+    <p class="tagline">Wildfire egress <em>planning</em> — which way out, and how long it had.</p>
+    <div class="planning-banner">
+      This is a planning tool. It shows what <em>would have happened</em>, from satellite
+      observations that are already hours old.
+      <small>Do not use this to drive. In a real fire, follow official evacuation orders.</small>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div>
+      <label for="address">Your address or neighbourhood</label>
+      <select id="address"></select>
+    </div>
+    <div>
+      <label for="scenario-time">Scenario time (PST, 8 Nov 2018)</label>
+      <input type="range" id="scenario-time" min="0" max="1439" step="15" value="510" />
+      <div class="time-readout" id="time-readout">08:30</div>
+    </div>
+  </div>
+
+  <div class="staleness" id="staleness">Loading…</div>
+
+  <div class="answer" id="answer">
+    <h2>Nearest exit still open</h2>
+    <div class="headline" id="answer-headline">—</div>
+    <div class="route" id="answer-route"></div>
+  </div>
+
+  <h3 class="section">All five ways out of Paradise</h3>
+  <div class="exits" id="exits"></div>
+
+  <h3 class="section">Know your two ways out</h3>
+  <div class="worksheet">
+    <p class="intro">
+      A static household worksheet. Nothing here is computed — you fill it in, it saves
+      in this browser only, and Firebreak never sees it. The single most useful thing a
+      household can do is agree on two different routes out before there is any smoke.
+    </p>
+    <div class="ws-row"><label for="ws-exit1">Way out #1</label>
+      <input type="text" id="ws-exit1" placeholder="e.g. Skyway south toward Chico" /></div>
+    <div class="ws-row"><label for="ws-exit2">Way out #2 (different direction)</label>
+      <input type="text" id="ws-exit2" placeholder="e.g. Clark Rd south toward CA-70" /></div>
+    <div class="ws-row"><label for="ws-meet">Meeting point</label>
+      <input type="text" id="ws-meet" placeholder="Somewhere outside the area" /></div>
+    <div class="ws-row"><label for="ws-contact">Out-of-area contact</label>
+      <input type="text" id="ws-contact" placeholder="Someone far away everyone calls" /></div>
+    <div class="ws-row"><label for="ws-gobag">Go-bag location</label>
+      <input type="text" id="ws-gobag" placeholder="Where it lives" /></div>
+    <div class="ws-actions">
+      <button id="ws-save">Save to this browser</button>
+      <button class="secondary" id="ws-print">Print</button>
+      <span class="ws-saved" id="ws-saved"></span>
+    </div>
+  </div>
+
+  <div class="limitations">
+    <h3>Limitations</h3>
+      <p>Firebreak is a planning tool, not navigation. It tells you what would happen and when, based on observations that are already hours old. Do not drive by it.</p>
+      <p>Firebreak cannot see people. A VIIRS pixel is 375 m across — four football fields — and a person standing beside an 800 °C fire front is thermally invisible against that background.</p>
+      <p>The ground sensor detects powered radios, not people. It counts WiFi probe requests. A phone in a pocket with WiFi off is not counted; a parked car with four phones counts as up to four; one phone can be counted many times.</p>
+      <p>A crossed road is treated as impassable. There is no partial-passability model: Firebreak has no way to know whether one lane, one shoulder, or nothing at all remains usable after a fire front crosses a road.</p>
+      <p>Fire spread is extrapolated from observed detections, not simulated. Firebreak does not model fuel, terrain, or wind. Between satellite passes it does not guess — unobserved ground is reported as UNKNOWN.</p>
+  </div>
+
+  <footer id="footer">Detections: NASA FIRMS VIIRS_SNPP_SP.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function hhmm(minutes) {
+  const h = String(Math.floor(minutes / 60)).padStart(2, "0");
+  const m = String(minutes % 60).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+async function loadPlaces() {
+  const res = await fetch("/api/places");
+  const data = await res.json();
+  const sel = $("address");
+  sel.innerHTML = "";
+  for (const p of data.places) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.label;
+    sel.appendChild(opt);
+  }
+  $("footer").textContent = `Detections: ${data.provenance}`;
+}
+
+function renderExit(o) {
+  const el = document.createElement("div");
+  el.className = `exit ${o.status}`;
+  const deadline = o.minutes_until_closure !== null
+    ? ` · projected cut in ~${o.minutes_until_closure} min`
+    : "";
+  el.innerHTML = `
+    <div class="exit-top">
+      <span class="exit-name">${o.road_name} → ${o.terminus_name}</span>
+      <span class="badge ${o.status}">${o.status}</span>
+    </div>
+    <div class="exit-headline">${o.headline}</div>
+    <div class="exit-detail">${o.detail}</div>
+    <div class="exit-meta">
+      ${o.distance_to_road_km} km to reach it · ${o.distance_along_road_km} km out${deadline}
+    </div>`;
+  return el;
+}
+
+async function refresh() {
+  const address = $("address").value;
+  const minutes = Number($("scenario-time").value);
+  $("time-readout").textContent = hhmm(minutes);
+
+  const res = await fetch(`/api/plan?address=${encodeURIComponent(address)}&minutes=${minutes}`);
+  const plan = await res.json();
+
+  const age = plan.observation_age_h;
+  $("staleness").innerHTML = age === null || age === undefined
+    ? "<strong>No satellite observation available at this scenario time.</strong> Everything below is UNKNOWN."
+    : `Based on a satellite pass at <strong>${(plan.as_of || "").slice(11, 16)} PST</strong> — ` +
+      `<strong>${age.toFixed(1)} hours</strong> before this scenario time. ` +
+      `Firebreak cannot see anything that happened in those hours.`;
+
+  const answer = $("answer");
+  answer.className = plan.recommended_road_id ? "answer" : "answer none";
+  $("answer-headline").textContent = plan.summary;
+
+  const rec = plan.options.find((o) => o.road_id === plan.recommended_road_id);
+  $("answer-route").textContent = rec
+    ? `Route: from ${plan.origin_label}, ${rec.distance_to_road_km} km to reach ` +
+      `${rec.road_name}, then ${rec.distance_along_road_km} km to ${rec.terminus_name}.`
+    : "Every artery was either already crossed or had not been observed recently enough to say.";
+
+  const exits = $("exits");
+  exits.innerHTML = "";
+  for (const o of plan.options) exits.appendChild(renderExit(o));
+}
+
+// --- worksheet: local only, never transmitted ---
+const WS_FIELDS = ["ws-exit1", "ws-exit2", "ws-meet", "ws-contact", "ws-gobag"];
+function loadWorksheet() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("firebreak.worksheet") || "{}");
+    for (const id of WS_FIELDS) if (saved[id]) $(id).value = saved[id];
+  } catch (_) { /* corrupt or unavailable storage: start blank */ }
+}
+function saveWorksheet() {
+  const out = {};
+  for (const id of WS_FIELDS) out[id] = $(id).value;
+  localStorage.setItem("firebreak.worksheet", JSON.stringify(out));
+  $("ws-saved").textContent = "Saved in this browser.";
+  setTimeout(() => ($("ws-saved").textContent = ""), 2500);
+}
+
+$("address").addEventListener("change", refresh);
+$("scenario-time").addEventListener("input", refresh);
+$("ws-save").addEventListener("click", saveWorksheet);
+$("ws-print").addEventListener("click", () => window.print());
+
+loadPlaces().then(refresh).then(loadWorksheet);
+</script>
+</body>
+</html>
