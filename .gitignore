@@ -4,6 +4,11 @@ __pycache__/
 .venv/
 venv/
 
+# Credentials. This repo is public — never let a FIRMS key reach a commit.
+.env
+.env.*
+!.env.example
+
 # FIRMS responses are cached locally; they are large and re-fetchable.
 data/cache/*.csv
 data/*.pdf
