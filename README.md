@@ -55,11 +55,22 @@ The planning interface:
 python3 interface/app.py --demo
 ```
 
+The network egress layer — who is cut off at one timestamp, and their plan:
+
+```bash
+python3 -m scripts.week2_solve_one --demo-severe --at 2018-11-08T13:30-08:00
+```
+
 Tests:
 
 ```bash
-python3 -m pytest -q
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest -q
 ```
+
+The road-level model, the hindcast and the interface remain pure standard
+library. Only the network egress layer needs `networkx` and `shapely`, and only
+`src/fire_data.py` needs `shapely` — see `requirements.txt`.
 
 ---
 
@@ -72,12 +83,55 @@ src/params.py        frozen parameters, each with provenance
 src/plan.py          door-to-safe-zone planning
 src/firms.py         NASA FIRMS VIIRS_SNPP_SP client + cache
 src/roads.py         the five Paradise egress arteries
+
+src/fire_data.py     FIRMS detections -> cumulative fire polygons (EPSG:32610)
+src/solver.py        NETWORK EGRESS — backward sweep from the exits; who is cut off
+src/route_planner.py the plan: nearest still-open exit, the route, the deadline
+scripts/week2_solve_one.py   one timestamp: who is cut off, and everyone else's plan
+
 GROUND_TRUTH.md      documented Camp Fire road failures, cited, with confidence tiers
 interface/           the planning UI (stdlib server, no deps)
 hardware/device_counter/   ESP32 coarse presence sensor + calibration
 docs/WRITEUP.md      the submission writeup
 docs/VIDEO_SCRIPT.md the submission video script
 ```
+
+---
+
+## Two layers, on purpose
+
+`src/model.py` asks a question about **roads**: has the fire crossed this
+artery. That is the model the hindcast scores against `GROUND_TRUTH.md`, and it
+is unchanged.
+
+`src/solver.py` asks a question about the **network**: can a resident still
+drive from here to any exit at all. A road can be open and useless if every
+road leading to it has burned, and that is exactly how people were cut off.
+
+The network layer walks **backward from the exits over a reversed graph**, once
+per frame. Direction is not a detail: on a one-way street "can the exit reach
+you" and "can you reach the exit" have opposite answers, and only the second one
+matters to a resident.
+`tests/test_solver.py::test_direction_matters_on_one_way_streets` pins that down
+with a burned one-way edge, and fails if the sweep is ever turned around.
+
+Frames are cumulative — roads never un-burn, the trapped set only grows, and a
+cutoff time is written once. `test_trapped_only_grows` asserts the monotonicity
+directly.
+
+**On the demo network.** The five arteries in `src/roads.py` are approximate
+centrelines and do not touch each other, so `scripts/week2_solve_one.py` joins
+them with straight **schematic connectors** — right connectivity, wrong
+geometry. They are flagged in the graph, in any route that uses one, and in the
+printed report. Pass `--graph network.json` to substitute a real OSM network;
+the solver and router take integer node ids and never know the difference.
+
+**On the fire polygon.** Detections are buffered by their own `scan`/`track`
+footprint, unioned, then morphologically closed by 93.75 m — a quarter of a
+VIIRS pixel. Closing bridges gaps up to twice that (187.5 m), which is less than
+the 375 m a single missed detection would leave, so the polygon can never invent
+fire across ground the instrument looked at and found cold. Every frame reports
+`area_added_by_closing_km2`, and the report prints it.
 
 ---
 
