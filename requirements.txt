@@ -1,0 +1,24 @@
+# Firebreak dependencies.
+#
+# The original road-level model (src/model.py, src/plan.py, src/hindcast.py,
+# src/firms.py, src/geo.py, src/roads.py) and the planning interface are still
+# pure standard library and need NOTHING here. You can run them with a bare
+# python3.
+#
+# These are for the network egress layer added on top:
+#
+#   networkx  — the road graph, its reversal, BFS and Dijkstra.
+#               Used by src/solver.py and src/route_planner.py.
+#   shapely   — polygon union, buffering and morphological closing.
+#               Used by src/fire_data.py ONLY. The solver and the router must
+#               never import it; tests/test_solver.py enforces that by
+#               importing them with shapely blocked outright.
+#
+# Neither package touches the network or needs an API key, which is why the
+# whole suite still runs in well under a second offline.
+
+networkx>=3.0
+shapely>=2.0
+
+# Test runner.
+pytest>=8.0
